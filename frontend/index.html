@@ -1,0 +1,355 @@
+<!DOCTYPE html>
+<html class="dark" lang="en" data-demo="false">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1"/>
+<title>ORBITAL | Space Debris Collision-Risk Platform</title>
+<meta name="description" content="Machine learning and Apache Spark platform that predicts satellite conjunction risk from Space-Track orbital data."/>
+<link rel="preconnect" href="https://fonts.googleapis.com"/>
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet"/>
+<script src="https://cdn.tailwindcss.com"></script>
+<script>
+tailwind.config = {
+  darkMode: "class",
+  theme: { extend: {
+    colors: { s0:"#0e0e0e", s1:"#1c1b1b", s2:"#201f1f", s3:"#2a2a2a", s4:"#353534", mute:"#8e9192", sec:"#c6c6c6", ol:"#444748" },
+    fontFamily: { sans:["Inter","system-ui","sans-serif"], mono:["JetBrains Mono","ui-monospace","monospace"] },
+    borderRadius: { DEFAULT:"2px", sm:"2px", md:"2px", lg:"2px" }
+  } }
+};
+</script>
+<style>
+  :root { --hdr: 56px; }
+  @media (max-width: 1279px) { :root { --hdr: 92px; } }
+  html { scroll-behavior: smooth; scroll-padding-top: var(--hdr); }
+  body { background:#0e0e0e; color:#e5e2e1; font-family:Inter,system-ui,sans-serif; font-size:12px; line-height:18px; -webkit-font-smoothing:antialiased; overscroll-behavior:none; }
+  ::selection { background:#fff; color:#0e0e0e; }
+  *:focus-visible { outline:1px solid #fff; outline-offset:2px; }
+
+  .label { font:500 10px/14px "JetBrains Mono",monospace; letter-spacing:.05em; text-transform:uppercase; color:#8e9192; }
+  .caps  { font:600 10px/14px Inter,sans-serif; letter-spacing:.12em; text-transform:uppercase; }
+  .mono  { font-family:"JetBrains Mono",monospace; }
+  .panel { background:#1c1b1b; border:1px solid #201f1f; border-radius:2px; }
+  .panel-raised { background:#201f1f; border:1px solid #2a2a2a; border-radius:2px; }
+  .wrap  { max-width:1720px; margin:0 auto; padding-left:16px; padding-right:16px; }
+  @media (min-width:1024px) { .wrap { padding-left:40px; padding-right:40px; } }
+  .section { padding:64px 0; border-bottom:1px solid #201f1f; }
+  .sec-head { display:flex; flex-wrap:wrap; align-items:flex-end; justify-content:space-between; gap:12px; padding-bottom:16px; margin-bottom:28px; border-bottom:1px solid #201f1f; }
+  .sec-head h2 { font:600 20px/28px Inter,sans-serif; letter-spacing:.06em; text-transform:uppercase; color:#fff; max-width:860px; }
+  @media (max-width:640px) { .sec-head h2 { font-size:16px; line-height:22px; } }
+
+  /* buttons: invert on hover, 200ms */
+  .btn { display:inline-flex; align-items:center; justify-content:center; padding:12px 24px; border:1px solid #fff; background:#fff; color:#0e0e0e; font:600 13px/18px Inter,sans-serif; letter-spacing:.08em; text-transform:uppercase; border-radius:2px; cursor:pointer; transition:background-color .2s, color .2s, border-color .2s; }
+  .btn:hover { background:#0e0e0e; color:#fff; }
+  .btn-ghost { background:rgba(28,27,27,.6); color:#fff; border-color:#444748; backdrop-filter:blur(4px); }
+  .btn-ghost:hover { background:#fff; color:#0e0e0e; border-color:#fff; }
+  .btn:disabled { opacity:.5; cursor:wait; }
+  .chip { display:inline-flex; align-items:center; gap:6px; padding:2px 8px; border:1px solid #2a2a2a; background:#1c1b1b; font:500 11px/16px "JetBrains Mono",monospace; color:#c4c7c8; border-radius:2px; }
+  .demo-only { display:none; }
+  html[data-demo="true"] .demo-only { display:inline-flex; }
+  .demo-badge { align-items:center; padding:2px 8px; border:1px solid #fff; color:#fff; font:600 10px/14px "JetBrains Mono",monospace; letter-spacing:.12em; border-radius:2px; }
+
+  /* nav */
+  .navlink { font:600 10px/14px Inter,sans-serif; letter-spacing:.12em; text-transform:uppercase; color:#c4c7c8; padding-bottom:2px; border-bottom:1px solid transparent; transition:color .2s,border-color .2s; white-space:nowrap; }
+  .navlink:hover { color:#fff; }
+  .navlink.active { color:#fff; border-bottom-color:#fff; }
+
+  /* reveal + hero motion (400-800ms, subtle) */
+  .reveal { opacity:0; transform:translateY(20px); transition:opacity .6s ease, transform .6s ease; }
+  .reveal.in { opacity:1; transform:none; }
+  @keyframes fadeUp { from { opacity:0; transform:translateY(16px); } to { opacity:1; transform:none; } }
+  .fade-up { opacity:0; animation:fadeUp .7s ease forwards; }
+  .d1 { animation-delay:.1s; } .d2 { animation-delay:.25s; } .d3 { animation-delay:.4s; } .d4 { animation-delay:.55s; }
+  @keyframes pulse { 0%,100% { opacity:1; } 50% { opacity:.35; } }
+  .pulse { animation:pulse 2s ease-in-out infinite; }
+  @media (prefers-reduced-motion: reduce) {
+    html { scroll-behavior:auto; }
+    .reveal { opacity:1; transform:none; transition:none; }
+    .fade-up { opacity:1; animation:none; }
+    .pulse { animation:none; }
+    .gauge-fill, .bar-fill { transition:none !important; }
+  }
+
+  /* hero horizon (grayscale, CSS only) */
+  .horizon { position:absolute; inset:0; overflow:hidden; filter:grayscale(1); pointer-events:none; }
+  .horizon::before { content:""; position:absolute; left:-40%; width:180%; top:70%; height:100%; border-radius:50%; background:#0e0e0e; box-shadow:inset 0 2px 0 rgba(255,255,255,.9), inset 0 20px 60px rgba(255,255,255,.28), 0 -6px 50px rgba(255,255,255,.28), 0 -30px 140px rgba(255,255,255,.12); }
+  .horizon::after { content:""; position:absolute; inset:0; background:linear-gradient(to right,rgba(14,14,14,.88) 0%,rgba(14,14,14,.45) 38%,transparent 70%); }
+
+  /* sliders */
+  input[type=range] { -webkit-appearance:none; appearance:none; width:100%; height:16px; background:transparent; cursor:pointer; }
+  input[type=range]::-webkit-slider-runnable-track { height:2px; background:linear-gradient(to right,#fff var(--p,50%),#353534 var(--p,50%)); }
+  input[type=range]::-moz-range-track { height:2px; background:#353534; }
+  input[type=range]::-moz-range-progress { height:2px; background:#fff; }
+  input[type=range]::-webkit-slider-thumb { -webkit-appearance:none; width:12px; height:12px; margin-top:-5px; background:#fff; border:2px solid #0e0e0e; border-radius:50%; box-shadow:0 0 0 1px #fff; }
+  input[type=range]::-moz-range-thumb { width:10px; height:10px; background:#fff; border:2px solid #0e0e0e; border-radius:50%; box-shadow:0 0 0 1px #fff; }
+
+  /* checkbox */
+  .cb { display:flex; align-items:center; justify-content:space-between; gap:8px; padding:8px 0; border-bottom:1px solid #2a2a2a; cursor:pointer; font:400 12px Inter,sans-serif; color:#e5e2e1; }
+  .cb input { appearance:none; width:14px; height:14px; border:1px solid #8e9192; border-radius:2px; background:transparent; display:grid; place-content:center; margin-right:8px; flex:none; cursor:pointer; }
+  .cb input:checked { background:#fff; border-color:#fff; }
+  .cb input:checked::after { content:""; width:6px; height:3px; border-left:2px solid #0e0e0e; border-bottom:2px solid #0e0e0e; transform:rotate(-45deg) translate(1px,-1px); }
+  .seg { padding:6px 0; border:1px solid #353534; background:transparent; color:#c4c7c8; font:500 10px/14px "JetBrains Mono",monospace; letter-spacing:.05em; border-radius:2px; cursor:pointer; transition:background-color .2s,color .2s; }
+  .seg:hover { border-color:#fff; }
+  .seg[aria-pressed="true"] { background:#fff; color:#0e0e0e; border-color:#fff; }
+
+  /* result card + gauge */
+  .gauge { position:relative; height:8px; background:#2a2a2a; border-radius:1px; overflow:hidden; }
+  .gauge-fill { height:100%; width:0; background:#fff; transition:width .7s cubic-bezier(.2,.7,.2,1); }
+  .bar-fill { height:100%; width:0; background:#c6c6c6; transition:width .7s cubic-bezier(.2,.7,.2,1); }
+  .sev-HIGH { background:#fff; color:#0e0e0e; border-color:#fff; }
+  .sev-MODERATE { background:transparent; color:#fff; border-color:#fff; }
+  .sev-LOW { background:#2a2a2a; color:#c6c6c6; border-color:#444748; }
+  .offline { border:1px dashed #8e9192; padding:14px 16px; color:#c6c6c6; font:500 11px/16px "JetBrains Mono",monospace; letter-spacing:.05em; }
+  table.t { width:100%; border-collapse:collapse; }
+  table.t th { text-align:left; padding:10px 12px; border-bottom:1px solid #2a2a2a; }
+  table.t td { padding:12px; border-bottom:1px solid #201f1f; font:400 13px/18px "JetBrains Mono",monospace; }
+  table.t tr.sel td { background:#201f1f; color:#fff; }
+  canvas { display:block; }
+  #tip { position:absolute; pointer-events:none; z-index:5; padding:6px 8px; background:#0e0e0e; border:1px solid #fff; font:500 11px/16px "JetBrains Mono",monospace; color:#fff; white-space:nowrap; display:none; border-radius:2px; }
+</style>
+</head>
+<body>
+
+<!-- ============ HEADER ============ -->
+<header class="fixed top-0 left-0 right-0 z-50 bg-s0 border-b border-s2">
+  <div class="h-14 wrap flex items-center justify-between gap-4">
+    <div class="flex items-center gap-3 sm:gap-4 shrink-0 min-w-0">
+      <div class="flex items-baseline gap-2">
+        <span class="font-semibold uppercase text-white text-[15px]" style="letter-spacing:.2em">ORBITAL</span>
+        <span class="label">v4.2</span>
+      </div>
+      <span id="statusChip" class="chip hidden 2xl:inline-flex"><span class="w-1.5 h-1.5 rounded-full bg-white pulse"></span><span id="statusText">[SYS: CONNECTING]</span></span>
+      <span class="demo-only demo-badge" title="Placeholder data from the deterministic rules engine and seeded synthetic objects">DEMO DATA</span>
+    </div>
+    <nav id="nav" class="hidden xl:flex items-center gap-6" aria-label="Sections">
+      <a class="navlink" href="#top">Overview</a>
+      <a class="navlink" href="#orbit-map">Orbit Map</a>
+      <a class="navlink" href="#clusters">Clusters</a>
+      <a class="navlink" href="#risk">Risk Model</a>
+      <a class="navlink" href="#performance">Performance</a>
+      <a class="navlink" href="#scalability" id="navScal">Scalability</a>
+      <a class="navlink" href="#pipeline">About</a>
+    </nav>
+    <div class="flex items-center gap-4 shrink-0">
+      <div class="hidden md:flex items-center gap-2 pr-4 border-r border-s2"><span class="w-2 h-2 rounded-full bg-white"></span><span id="clock" class="mono text-[13px] text-white">00:00:00 UTC</span></div>
+      <a href="#risk" class="inline-flex items-center px-4 py-1.5 border border-ol hover:border-white hover:bg-white hover:text-s0 text-white caps rounded-sm transition-colors duration-200 whitespace-nowrap"><span class="hidden sm:inline">Launch&nbsp;</span>Dashboard</a>
+    </div>
+  </div>
+  <nav id="navMobile" class="xl:hidden h-9 border-t border-s2 flex items-center gap-6 overflow-x-auto px-4" style="scrollbar-width:none" aria-label="Sections">
+    <a class="navlink" href="#top">Overview</a><a class="navlink" href="#orbit-map">Orbit Map</a><a class="navlink" href="#clusters">Clusters</a><a class="navlink" href="#risk">Risk</a><a class="navlink" href="#performance">Performance</a><a class="navlink" href="#scalability" id="navScalM">Scalability</a><a class="navlink" href="#pipeline">About</a>
+  </nav>
+</header>
+
+<main id="top" style="padding-top:var(--hdr)">
+
+<!-- ============ HERO ============ -->
+<section class="relative overflow-hidden border-b border-s2" style="margin-top:calc(var(--hdr) * -1); padding-top:var(--hdr)">
+  <div class="horizon" aria-hidden="true"><canvas id="stars" class="absolute inset-0 w-full h-full" style="opacity:.7"></canvas></div>
+  <div class="relative wrap flex flex-col justify-end py-20 lg:py-24" style="min-height:640px">
+    <div class="fade-up d1 inline-flex w-fit items-center gap-2 px-2.5 py-1 mb-5 border border-s2 bg-s1/90 backdrop-blur">
+      <span class="w-1.5 h-1.5 rounded-full bg-white pulse"></span>
+      <span class="label" style="color:#e5e2e1;letter-spacing:.12em">SPACE-TRACK TLE INGESTION // APACHE SPARK ML PIPELINE</span>
+    </div>
+    <h1 class="fade-up d2 font-bold uppercase text-white text-[34px] sm:text-[46px] lg:text-[58px] max-w-5xl" style="line-height:1.08;letter-spacing:.04em">Predicting collisions<br class="hidden sm:inline"/> before they happen</h1>
+    <p class="fade-up d3 text-sec text-[14px] max-w-2xl mt-5" style="line-height:22px;letter-spacing:.02em">High-throughput orbital conjunction assessment predicting satellite collision risk from orbital ephemeris data using distributed Spark ML architectures.</p>
+    <div class="fade-up d3 flex flex-wrap items-center gap-4 mt-8">
+      <a class="btn" href="#orbit-map">Explore data</a>
+      <a class="btn btn-ghost" href="#performance">View model pipeline</a>
+    </div>
+    <div class="fade-up d4 mt-14 pt-4 border-t border-s2 flex flex-wrap items-center justify-between gap-4 label">
+      <div class="flex flex-wrap items-center gap-x-6 gap-y-2">
+        <span>Catalog: <span id="tkCatalog" class="text-white mono text-[11px]">--</span></span>
+        <span class="text-s4 hidden sm:inline">|</span>
+        <span>Scoring engine: <span id="tkEngine" class="text-white mono text-[11px]">--</span></span>
+        <span class="text-s4 hidden sm:inline">|</span>
+        <span>Data mode: <span id="tkMode" class="text-white mono text-[11px]">--</span></span>
+      </div>
+      <div class="flex items-center gap-2"><span class="inline-block w-2 h-0.5 bg-white"></span><span class="tracking-widest">API <span id="tkApi">--</span></span></div>
+    </div>
+  </div>
+</section>
+
+<!-- ============ STATS ============ -->
+<section class="border-b border-s2" id="stats">
+  <div class="wrap">
+    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 divide-y sm:divide-y-0 sm:divide-x divide-s2">
+      <div class="py-6 sm:px-4 lg:first:pl-0"><div class="label mb-2 flex justify-between"><span>01 // Tracked objects</span><span class="demo-only demo-badge">DEMO</span></div><div class="mono text-[34px] lg:text-[38px] text-white font-medium tracking-tight leading-tight" data-stat="tracked" data-decimals="0">--</div><p class="text-sec mt-1">Objects in the processed catalog (all regimes)</p></div>
+      <div class="py-6 sm:px-4"><div class="label mb-2 flex justify-between"><span>02 // Debris fragments</span><span class="demo-only demo-badge">DEMO</span></div><div class="mono text-[34px] lg:text-[38px] text-white font-medium tracking-tight leading-tight" data-stat="debris" data-decimals="0">--</div><p class="text-sec mt-1">Catalog objects classified as debris</p></div>
+      <div class="py-6 sm:px-4"><div class="label mb-2 flex justify-between"><span>03 // High-risk conjunctions</span><span class="demo-only demo-badge">DEMO</span></div><div class="mono text-[34px] lg:text-[38px] text-white font-medium tracking-tight leading-tight" data-stat="high_risk" data-decimals="0">--</div><p class="text-sec mt-1">Events with Pc &gt; 1e-4 flagged high risk</p></div>
+      <div class="py-6 sm:px-4 lg:last:pr-0"><div class="label mb-2 flex justify-between"><span>04 // Model PR-AUC</span><span class="demo-only demo-badge">DEMO</span></div><div class="mono text-[34px] lg:text-[38px] text-white font-medium tracking-tight leading-tight" data-stat="pr_auc" data-decimals="3">--</div><p class="text-sec mt-1">Selected classifier, time-split test set</p></div>
+    </div>
+    <div data-offline="stats"></div>
+  </div>
+</section>
+
+<!-- ============ ORBIT MAP ============ -->
+<section class="section" id="orbit-map">
+  <div class="wrap">
+    <div class="sec-head reveal">
+      <div><span class="label block mb-1" style="letter-spacing:.12em">SECTION 01 // ORBITAL SITUATION DISPLAY</span>
+      <h2>Projection of LEO / MEO / GEO orbital shells</h2></div>
+      <div class="flex items-center gap-3 label"><span class="chip"><span class="w-1.5 h-1.5 bg-white pulse"></span>CIRCULAR-ORBIT PROJECTION</span><span class="demo-only demo-badge">DEMO DATA</span></div>
+    </div>
+    <div class="grid grid-cols-1 lg:grid-cols-12 gap-6 reveal">
+      <div class="lg:col-span-9 panel relative overflow-hidden" id="globeBox" style="height:min(70vh,560px);min-height:360px">
+        <canvas id="globe" class="w-full h-full" style="touch-action:pan-y;cursor:grab" role="img" aria-label="Wireframe globe with orbiting objects projected from altitude, inclination, RAAN and phase. Drag to rotate."></canvas>
+        <div id="tip"></div>
+        <div class="absolute left-4 bottom-4 label flex flex-col gap-1.5">
+          <span class="flex items-center gap-2"><i class="inline-block w-2 h-2 rounded-full bg-white"></i>Payload</span>
+          <span class="flex items-center gap-2"><i class="inline-block w-2 h-2 bg-sec"></i>Rocket body</span>
+          <span class="flex items-center gap-2"><i class="inline-block w-1.5 h-1.5 rounded-full bg-mute"></i>Debris</span>
+        </div>
+        <div class="absolute right-4 bottom-4 label text-right">Drag to rotate · hover for details</div>
+        <div data-offline="objects" class="absolute inset-4"></div>
+      </div>
+      <aside class="lg:col-span-3 panel-raised p-5 flex flex-col gap-5" aria-label="Orbit map filters">
+        <div class="flex items-center justify-between"><h3 class="caps text-white">Ephemeris filters</h3><span class="label" id="projCount">0 nodes</span></div>
+        <div><div class="label mb-1">Object classification</div>
+          <label class="cb"><span class="flex items-center"><input type="checkbox" data-type="PAYLOAD" checked/>Active payloads</span><span class="mono text-[11px] text-mute" data-count="PAYLOAD">0</span></label>
+          <label class="cb"><span class="flex items-center"><input type="checkbox" data-type="ROCKET BODY" checked/>Rocket bodies</span><span class="mono text-[11px] text-mute" data-count="ROCKET BODY">0</span></label>
+          <label class="cb"><span class="flex items-center"><input type="checkbox" data-type="DEBRIS" checked/>Cataloged debris</span><span class="mono text-[11px] text-mute" data-count="DEBRIS">0</span></label>
+        </div>
+        <div><div class="flex justify-between label mb-2"><label for="altCut">Altitude cutoff</label><span id="altCutVal" class="text-white mono">40,000 km</span></div>
+          <input id="altCut" type="range" min="0" max="100" value="100" step="1"/>
+          <div class="flex justify-between label mt-1"><span>200 km</span><span>40,000 km</span></div></div>
+        <div><div class="label mb-2">Regime</div>
+          <div class="grid grid-cols-3 gap-2" id="regimeBtns">
+            <button class="seg" data-regime="ALL" aria-pressed="true">ALL</button><button class="seg" data-regime="LEO" aria-pressed="false">LEO</button><button class="seg" data-regime="MEO" aria-pressed="false">MEO</button>
+            <button class="seg" data-regime="GEO" aria-pressed="false">GEO</button><button class="seg" data-regime="SSO" aria-pressed="false">SSO</button><button class="seg" data-regime="HEO" aria-pressed="false">HEO</button>
+          </div></div>
+        <button id="spinBtn" class="btn btn-ghost !py-2.5 !text-[11px]" aria-pressed="false">Pause spin</button>
+        <p class="label" style="text-transform:none;letter-spacing:0;line-height:16px">Altitude is compressed for legibility. Orbits are drawn circular at mean altitude; angular speed is a time-lapse, not real time.</p>
+      </aside>
+    </div>
+  </div>
+</section>
+
+<!-- ============ CLUSTERS ============ -->
+<section class="section" id="clusters">
+  <div class="wrap">
+    <div class="sec-head reveal">
+      <div><span class="label block mb-1" style="letter-spacing:.12em">SECTION 02 // REGIME CLUSTERING</span>
+      <h2>Inclination vs. altitude clustering</h2></div>
+      <p class="text-sec max-w-md">Each mark is one object from the sample. Marker shape encodes orbital regime; no colour is used.</p>
+    </div>
+    <div class="panel p-3 sm:p-5 reveal relative">
+      <canvas id="scatter" class="w-full" style="height:min(60vh,440px);min-height:300px" role="img" aria-label="Scatter plot of inclination from 0 to 120 degrees against log altitude from 200 to 40,000 kilometres"></canvas>
+      <div data-offline="scatter"></div>
+      <div id="scatterLegend" class="flex flex-wrap gap-x-6 gap-y-2 mt-4 label"></div>
+    </div>
+    <div class="grid grid-cols-2 lg:grid-cols-4 gap-4 mt-4 reveal" id="clusterStats"></div>
+  </div>
+</section>
+
+<!-- ============ RISK PREDICTOR ============ -->
+<section class="section" id="risk">
+  <div class="wrap">
+    <div class="sec-head reveal">
+      <div><span class="label block mb-1" style="letter-spacing:.12em">SECTION 03 // REAL-TIME RISK PREDICTION</span>
+      <h2>Conjunction risk inference engine</h2></div>
+      <div class="flex items-center gap-3 label"><span class="chip" id="engineChip">ENGINE: --</span><span class="demo-only demo-badge">DEMO DATA</span></div>
+    </div>
+    <div class="grid grid-cols-1 lg:grid-cols-12 gap-6 reveal">
+      <form id="predictForm" class="lg:col-span-5 panel p-6 flex flex-col gap-6" novalidate>
+        <div class="flex items-center justify-between"><h3 class="caps text-white">Ephemeris parameter input</h3><span class="label">Conjunction matrix</span></div>
+        <div><div class="flex justify-between label mb-2"><label for="s_miss">Miss distance</label><span id="v_miss" class="text-white mono"></span></div><input id="s_miss" type="range" min="0.01" max="10" step="0.01" value="0.34"/><div class="flex justify-between label mt-1"><span>0.01 km</span><span>10 km</span></div></div>
+        <div><div class="flex justify-between label mb-2"><label for="s_vel">Relative velocity</label><span id="v_vel" class="text-white mono"></span></div><input id="s_vel" type="range" min="0.5" max="16" step="0.1" value="14.2"/><div class="flex justify-between label mt-1"><span>0.5 km/s</span><span>16 km/s</span></div></div>
+        <div><div class="flex justify-between label mb-2"><label for="s_inc">Inclination divergence</label><span id="v_inc" class="text-white mono"></span></div><input id="s_inc" type="range" min="0" max="15" step="0.1" value="2.4"/><div class="flex justify-between label mt-1"><span>0°</span><span>15°</span></div></div>
+        <div><div class="flex justify-between label mb-2"><label for="s_bstar">BSTAR drag term</label><span id="v_bstar" class="text-white mono"></span></div><input id="s_bstar" type="range" min="0.1" max="5" step="0.01" value="1.84"/><div class="flex justify-between label mt-1"><span>0.1e-4</span><span>5e-4</span></div></div>
+        <button id="calcBtn" type="submit" class="btn w-full">Calculate collision probability</button>
+        <div data-offline="predict"></div>
+      </form>
+
+      <div class="lg:col-span-7 panel p-6 flex flex-col gap-5" aria-live="polite">
+        <div class="flex items-center justify-between gap-3"><h3 class="caps text-white">Predicted assessment</h3><span id="resChip" class="mono text-[11px] px-2 py-0.5 border rounded-sm sev-LOW">--</span></div>
+        <div>
+          <div class="label" id="resLabel">Derived probability of collision (Pc)</div>
+          <div class="mono text-white font-medium mt-1" style="font-size:clamp(40px,7vw,72px);line-height:1.05;letter-spacing:-.02em" id="resPc">--</div>
+        </div>
+        <div>
+          <div class="flex justify-between label mb-1.5"><span id="resLevel">--</span><span id="resThr">Threshold: 1.0e-4</span></div>
+          <div class="gauge" role="meter" id="gauge" aria-valuemin="0" aria-valuemax="1" aria-valuenow="0" aria-label="Risk score"><div class="gauge-fill" id="gaugeFill"></div></div>
+          <div class="flex justify-between label mt-1.5" id="gaugeTicks"></div>
+        </div>
+        <div class="grid grid-cols-3 gap-3 border-t border-s2 pt-4">
+          <div><div class="label">Miss distance</div><div class="mono text-white text-[15px]" id="resMiss">--</div></div>
+          <div><div class="label">Relative velocity</div><div class="mono text-white text-[15px]" id="resVel">--</div></div>
+          <div><div class="label">Engine</div><div class="mono text-white text-[15px]" id="resEngine">--</div></div>
+        </div>
+        <div class="panel-raised p-4"><p class="mono text-[12px] text-white" style="line-height:19px" id="resAction">--</p><p class="label mt-2 hidden" id="resNote" style="text-transform:none"></p></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ============ PERFORMANCE ============ -->
+<section class="section" id="performance">
+  <div class="wrap">
+    <div class="sec-head reveal">
+      <div><span class="label block mb-1" style="letter-spacing:.12em">SECTION 04 // MODEL EVALUATION &amp; BENCHMARKING</span>
+      <h2>Validation metrics across candidate architectures</h2></div>
+      <div class="flex items-center gap-3"><span class="demo-only demo-badge">DEMO DATA</span><p class="text-sec max-w-md">Class 1 = Pc &gt; 1e-4. Evaluated on a time-based split. Accuracy is omitted because of class imbalance.</p></div>
+    </div>
+    <div class="panel reveal overflow-x-auto">
+      <table class="t" id="modelTable"><thead><tr><th class="label">Model architecture</th><th class="label">PR-AUC</th><th class="label">Recall (1)</th><th class="label">F1 (1)</th><th class="label">Train time</th><th class="label">Status</th></tr></thead><tbody></tbody></table>
+      <div data-offline="models" class="m-4"></div>
+    </div>
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mt-6 reveal">
+      <div class="panel p-6"><div class="flex justify-between items-center mb-5"><h3 class="caps text-white">Feature importance</h3><span class="label">Σ = 100%</span></div><div id="importance" class="flex flex-col gap-4"></div></div>
+      <div class="panel p-6"><div class="flex justify-between items-center mb-5"><h3 class="caps text-white">Test-split confusion matrix</h3><span class="label" id="cmTotal"></span></div>
+        <div class="grid" style="grid-template-columns:auto 1fr 1fr;gap:6px">
+          <div></div><div class="label text-center pb-1">Pred. 0</div><div class="label text-center pb-1">Pred. 1</div>
+          <div class="label flex items-center pr-2">True 0</div><div id="cm_tn" class="p-4 text-center border border-s3" style="background:#2a2a2a"></div><div id="cm_fp" class="p-4 text-center border border-s3" style="background:#1c1b1b"></div>
+          <div class="label flex items-center pr-2">True 1</div><div id="cm_fn" class="p-4 text-center border border-s3" style="background:#1c1b1b"></div><div id="cm_tp" class="p-4 text-center" style="background:#fff;color:#0e0e0e"></div>
+        </div>
+        <div class="grid grid-cols-3 gap-3 mt-5 pt-4 border-t border-s2" id="cmStats"></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ============ SCALABILITY ============ -->
+<section class="section" id="scalability">
+  <div class="wrap">
+    <div class="sec-head reveal">
+      <div><span class="label block mb-1" style="letter-spacing:.12em">SECTION 05 // COMPUTATIONAL SCALABILITY</span>
+      <h2>Distributed Spark pipeline vs. single-node scikit-learn</h2></div>
+      <div class="flex items-center gap-3"><span class="demo-only demo-badge">DEMO DATA</span><p class="text-sec max-w-md">Training runtime as the number of Spark cores grows. scikit-learn is the single-node baseline.</p></div>
+    </div>
+    <div class="grid grid-cols-1 lg:grid-cols-3 gap-6 reveal">
+      <div class="lg:col-span-2 panel p-4 sm:p-6"><div id="scalChart"></div></div>
+      <div class="panel p-6 flex flex-col gap-5" id="scalStats"></div>
+    </div>
+  </div>
+</section>
+
+<!-- ============ PIPELINE ============ -->
+<section class="section" id="pipeline" style="border-bottom:0">
+  <div class="wrap">
+    <div class="sec-head reveal">
+      <div><span class="label block mb-1" style="letter-spacing:.12em">SECTION 06 // SYSTEM SPECIFICATIONS</span>
+      <h2>End-to-end mission pipeline</h2></div>
+    </div>
+    <div class="grid grid-cols-1 md:grid-cols-5 gap-px bg-s2 border border-s2 reveal">
+      <div class="bg-s0 p-5"><div class="label mb-2">01 // Ingest</div><h3 class="caps text-white mb-2">Space-Track</h3><p class="text-sec">GP elements, SATCAT and public CDMs downloaded to <span class="mono">data/raw</span>.</p></div>
+      <div class="bg-s0 p-5"><div class="label mb-2">02 // Process</div><h3 class="caps text-white mb-2">Spark features</h3><p class="text-sec">Clean, join, altitude shells, shell density, pair differences.</p></div>
+      <div class="bg-s0 p-5"><div class="label mb-2">03 // Cluster</div><h3 class="caps text-white mb-2">KMeans regimes</h3><p class="text-sec">Standardised altitude, inclination and eccentricity; k tuned by silhouette.</p></div>
+      <div class="bg-s0 p-5"><div class="label mb-2">04 // Classify</div><h3 class="caps text-white mb-2">LR / RF / GBT</h3><p class="text-sec">Time-split training with class weights. Label: Pc &gt; 1e-4.</p></div>
+      <div class="bg-white p-5" style="color:#0e0e0e"><div class="label mb-2" style="color:#444748">05 // Serve</div><h3 class="caps mb-2" style="color:#0e0e0e">FastAPI + dashboard</h3><p style="color:#303031">Predictor endpoint with a deterministic rules fallback.</p></div>
+    </div>
+    <p class="label mt-6" style="text-transform:none;letter-spacing:.02em;line-height:18px;max-width:900px">Screening and risk-ranking tool, not a precise collision predictor: TLE accuracy is kilometre-level and public CDM data is limited. Demo values are placeholders and must not be reported as findings.</p>
+  </div>
+</section>
+</main>
+
+<footer class="border-t border-s2 py-6">
+  <div class="wrap flex flex-col md:flex-row md:items-center justify-between gap-4 label">
+    <div class="flex flex-wrap items-center gap-x-6 gap-y-2"><span>Feed: <span class="text-white">SPACE-TRACK.ORG</span> / <span class="text-white">ESA DISCOS (optional)</span></span><span>Engine: <span class="text-white" id="ftEngine">--</span></span></div>
+    <div class="flex items-center gap-6"><span class="flex items-center gap-2"><span class="w-1.5 h-1.5 rounded-full bg-white"></span>ORBITAL v4.2</span><a id="repoLink" class="hover:text-white transition-colors" href="https://github.com/" target="_blank" rel="noopener noreferrer">GitHub repo ↗</a></div>
+  </div>
+</footer>
+
+<script src="app.js"></script>
+</body>
+</html>

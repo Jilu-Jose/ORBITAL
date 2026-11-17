@@ -1,0 +1,16 @@
+# Space-Track terms forbid redistributing raw data
+backend/data/raw/*.json
+backend/data/sample/
+backend/data/sample_out/
+backend/data/processed/*
+backend/models/*
+!backend/data/raw/.gitkeep
+!backend/data/processed/.gitkeep
+!backend/models/.gitkeep
+.venv/
+__pycache__/
+*.pyc
+.pytest_cache/
+spark-warehouse/
+metastore_db/
+derby.log

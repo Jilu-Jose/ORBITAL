@@ -1,0 +1,6 @@
+# Needed only for the Spark scripts (backend/spark/*). Also requires Java 11 or 17.
+pyspark>=3.5,<4
+requests>=2.31
+numpy>=1.26
+scikit-learn>=1.4   # only for spark/benchmark.py baseline
+pandas>=2.0         # only for spark/benchmark.py baseline
