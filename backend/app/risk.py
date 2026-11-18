@@ -13,8 +13,15 @@ from __future__ import annotations
 import json
 import math
 import os
+import sys
 import threading
 from pathlib import Path
+
+# Ensure PySpark uses the current Python environment and its bundled matching JARs
+os.environ.setdefault("PYSPARK_PYTHON", sys.executable)
+os.environ.setdefault("PYSPARK_DRIVER_PYTHON", sys.executable)
+if "SPARK_HOME" in os.environ:
+    del os.environ["SPARK_HOME"]
 
 BACKEND_DIR = Path(__file__).resolve().parent.parent
 MODEL_DIR = BACKEND_DIR / "models" / "gbt_pipeline"

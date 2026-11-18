@@ -1,0 +1,28 @@
+{
+  "model_name": "Random Forest",
+  "features": [
+    "inc_diff",
+    "alt_diff",
+    "ecc_diff",
+    "bstar_diff",
+    "raan_diff",
+    "v_rel_est",
+    "alt_mean"
+  ],
+  "defaults": {
+    "inc_diff": 15.954000000000008,
+    "alt_diff": 36.30449999999996,
+    "ecc_diff": 0.00532656,
+    "bstar_diff": 0.0007371999999999999,
+    "raan_diff": 130.5007,
+    "v_rel_est": 2.057429918697611,
+    "alt_mean": 800.80275
+  },
+  "label_threshold_pc": 0.00025,
+  "include_miss_distance": false,
+  "cluster": {
+    "k": 4,
+    "silhouette_by_k": {}
+  },
+  "split_quantile": 0.8
+}

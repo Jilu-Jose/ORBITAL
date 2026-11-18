@@ -1,0 +1,72 @@
+{
+  "models": [
+    {
+      "name": "Threshold rule (miss < 1 km)",
+      "pr_auc": 0.6679,
+      "recall": 1.0,
+      "f1": 0.6932,
+      "train_s": 0.0,
+      "selected": false
+    },
+    {
+      "name": "Logistic Regression (baseline)",
+      "pr_auc": 0.5118,
+      "recall": 0.4068,
+      "f1": 0.4359,
+      "train_s": 10.1,
+      "selected": false
+    },
+    {
+      "name": "Random Forest",
+      "pr_auc": 0.609,
+      "recall": 0.3416,
+      "f1": 0.449,
+      "train_s": 8.8,
+      "selected": true
+    },
+    {
+      "name": "Gradient Boosted Trees",
+      "pr_auc": 0.5299,
+      "recall": 0.3292,
+      "f1": 0.3985,
+      "train_s": 34.7,
+      "selected": false
+    }
+  ],
+  "importance": [
+    [
+      "ecc_diff",
+      0.1797
+    ],
+    [
+      "alt_diff",
+      0.1729
+    ],
+    [
+      "bstar_diff",
+      0.1683
+    ],
+    [
+      "alt_mean",
+      0.1398
+    ],
+    [
+      "raan_diff",
+      0.1306
+    ],
+    [
+      "inc_diff",
+      0.1149
+    ],
+    [
+      "v_rel_est",
+      0.0939
+    ]
+  ],
+  "confusion": {
+    "tn": 227,
+    "fp": 58,
+    "fn": 212,
+    "tp": 110
+  }
+}

@@ -20,9 +20,16 @@ from __future__ import annotations
 import argparse
 import json
 import math
+import os
 import sys
 import time
 from pathlib import Path
+
+# Ensure PySpark uses the current Python environment and its bundled matching JARs
+os.environ.setdefault("PYSPARK_PYTHON", sys.executable)
+os.environ.setdefault("PYSPARK_DRIVER_PYTHON", sys.executable)
+if "SPARK_HOME" in os.environ:
+    del os.environ["SPARK_HOME"]
 
 from pyspark.ml import Pipeline
 from pyspark.ml.classification import GBTClassifier, LogisticRegression, RandomForestClassifier
@@ -163,7 +170,7 @@ def build_objects(spark, data_dir: Path, k: int, tune_k: bool):
 
 
 # --------------------------------------------------------------------------- stage 4-5: pairs + labels
-def build_pairs(spark, data_dir: Path, obj, dedupe: bool):
+def build_pairs(spark, data_dir: Path, obj, dedupe: bool, pc_threshold: float = HIGH_PC_THRESHOLD):
     log("loading cdm.json ...")
     cdm = read_json(spark, data_dir / "cdm.json")
     cdm = (
@@ -215,7 +222,7 @@ def build_pairs(spark, data_dir: Path, obj, dedupe: bool):
         .withColumn("regime_1", F.least("regime_1_raw", "regime_2_raw").cast("double"))
         .withColumn("regime_2", F.greatest("regime_1_raw", "regime_2_raw").cast("double"))
         # label is derived from PC only; PC is never a feature
-        .withColumn("label", (F.col("pc") > F.lit(HIGH_PC_THRESHOLD)).cast("double"))
+        .withColumn("label", (F.col("pc") > F.lit(pc_threshold)).cast("double"))
     )
     keep = ["created_ts", "tca", "sat1", "sat2", "label", "miss_km"] + [f for f in dict.fromkeys(FEATURES) if f != "miss_km"]
     return p.select(*dict.fromkeys(keep))
@@ -250,6 +257,7 @@ def importances(model, features):
 
 def main() -> None:
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
+    ap.add_argument("--pc-threshold", type=float, default=2.5e-4, help="conjunction risk threshold for label=1 (default 2.5e-4)")
     ap.add_argument("--data-dir", type=Path, default=BACKEND / "data" / "raw")
     ap.add_argument("--out-dir", type=Path, default=BACKEND)
     ap.add_argument("--k", type=int, default=6, help="KMeans clusters (ignored with --tune-k)")
@@ -266,6 +274,7 @@ def main() -> None:
     if not features:
         raise SystemExit("No features left after --drop-features.")
     log(f"features: {features}")
+    log(f"PC threshold for label=1: {args.pc_threshold:.2e}")
 
     models_dir = args.out_dir / "models"
     processed_dir = args.out_dir / "data" / "processed"
@@ -282,7 +291,7 @@ def main() -> None:
     spark.sparkContext.setLogLevel("ERROR")
 
     obj, cluster_info = build_objects(spark, args.data_dir, args.k, args.tune_k)
-    pairs = build_pairs(spark, args.data_dir, obj, dedupe=not args.no_dedupe).cache()
+    pairs = build_pairs(spark, args.data_dir, obj, dedupe=not args.no_dedupe, pc_threshold=args.pc_threshold).cache()
     n_pairs = pairs.count()
     if n_pairs == 0:
         raise SystemExit("No conjunction pairs after joining CDMs to objects. Check that cdm SAT_1_ID/SAT_2_ID match gp NORAD_CAT_ID.")
@@ -323,11 +332,11 @@ def main() -> None:
         ],
         "Random Forest": [
             assembler,
-            RandomForestClassifier(featuresCol="features_raw", labelCol="label", weightCol="w", numTrees=200, maxDepth=10, seed=42),
+            RandomForestClassifier(featuresCol="features_raw", labelCol="label", weightCol="w", numTrees=100, maxDepth=6, seed=42),
         ],
         "Gradient Boosted Trees": [
             assembler,
-            GBTClassifier(featuresCol="features_raw", labelCol="label", weightCol="w", maxIter=100, maxDepth=6, stepSize=0.1, seed=42),
+            GBTClassifier(featuresCol="features_raw", labelCol="label", weightCol="w", maxIter=30, maxDepth=4, stepSize=0.1, seed=42),
         ],
     }
 
@@ -363,7 +372,7 @@ def main() -> None:
     best_model.write().overwrite().save(str(model_path))
     (models_dir / "model_meta.json").write_text(json.dumps({
         "model_name": best_name, "features": features, "defaults": defaults,
-        "label_threshold_pc": HIGH_PC_THRESHOLD, "include_miss_distance": INCLUDE_MISS_DISTANCE,
+        "label_threshold_pc": args.pc_threshold, "include_miss_distance": INCLUDE_MISS_DISTANCE,
         "cluster": cluster_info, "split_quantile": args.split_pct,
     }, indent=2))
 

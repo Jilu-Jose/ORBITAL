@@ -14,9 +14,17 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
+import sys
 import tempfile
 import time
 from pathlib import Path
+
+# Ensure PySpark uses the current Python environment and its bundled matching JARs
+os.environ.setdefault("PYSPARK_PYTHON", sys.executable)
+os.environ.setdefault("PYSPARK_DRIVER_PYTHON", sys.executable)
+if "SPARK_HOME" in os.environ:
+    del os.environ["SPARK_HOME"]
 
 import numpy as np
 import pandas as pd
@@ -73,7 +81,7 @@ def main() -> None:
     spark_times = []
     for c in args.cores:
         spark = (SparkSession.builder.master(f"local[{c}]").appName(f"bench-{c}")
-                 .config("spark.ui.enabled", "false").config("spark.driver.memory", "4g").getOrCreate())
+                 .config("spark.ui.enabled", "false").config("spark.driver.memory", "3g").getOrCreate())
         spark.sparkContext.setLogLevel("ERROR")
         df = VectorAssembler(inputCols=feats, outputCol="features").transform(spark.read.parquet(str(tmp))).select("features", "label").cache()
         df.count()  # materialise the cache so only training is timed
